@@ -4,19 +4,20 @@ import { db } from '../db';
 import { signalingMessagesTable } from '../db/schema';
 
 export async function sendSignalingMessage(input: SendSignalingMessageInput): Promise<SignalingMessage> {
-  // This handler manages WebRTC signaling messages between peers
-  // Stores signaling messages (offer, answer, ICE candidates) in database
-  // In a real implementation, this would also emit to WebSocket connections
-  
   try {
     // Store signaling message in database for persistence/debugging
-    const newMessage = await db.insert(signalingMessagesTable).values({
-      room_id: input.roomId,
-      from_user_id: input.fromUserId,
-      to_user_id: input.toUserId || null,
-      message_type: input.type,
-      payload: input.payload ? JSON.stringify(input.payload) : null
-    }).returning();
+    const result = await db.insert(signalingMessagesTable)
+      .values({
+        room_id: input.roomId,
+        from_user_id: input.fromUserId,
+        to_user_id: input.toUserId || null,
+        message_type: input.type,
+        payload: input.payload ? JSON.stringify(input.payload) : null
+      })
+      .returning()
+      .execute();
+    
+    const newMessage = result[0];
     
     // In a real implementation, you would emit this message to WebSocket connections
     // for real-time delivery to the target user(s)
@@ -28,12 +29,13 @@ export async function sendSignalingMessage(input: SendSignalingMessageInput): Pr
       fromUserId: input.fromUserId,
       toUserId: input.toUserId,
       roomId: input.roomId,
-      timestamp: newMessage[0].timestamp
+      timestamp: newMessage.timestamp
     };
     
     return signalingMessage;
     
   } catch (error) {
-    throw new Error(`Failed to send signaling message: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    console.error('Failed to send signaling message:', error);
+    throw error;
   }
 }
